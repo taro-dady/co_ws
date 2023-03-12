@@ -1,4 +1,4 @@
-
+ï»¿
 #include "web_server.h"
 #include <co_routine/inc.h>
 #include <net/net_work.h>
@@ -26,7 +26,7 @@ void web_svr_test()
         WS_WARN << "hello request arrived";
         response( client );
 
-        return true; // true ±£³ÖÁ¬½Ó false ¶Ï¿ªÁ¬½Ó
+        return true;
     } );
 
     svr.start( 20002 );
