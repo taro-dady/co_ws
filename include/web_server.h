@@ -60,13 +60,6 @@ PUBLIC: // 公共函数
     */
     int32_t set_path( const char* dir );
 
-    /**
-     * @brief 设置重定向路径
-     * 
-     * @param[in] redirect 重定向路径
-    */
-    int32_t set_redirect( const char* redirect );
-
 PRIVATE: // 私有类型 
 
     friend struct WebServerImpl;

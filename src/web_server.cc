@@ -2,6 +2,7 @@
 #include "impl/web_server_impl.h"
 #include "impl/http_proto_impl.h"
 #include "impl/http_client_impl.h"
+#include <base/utils/string_tool.h>
 #include <co_routine/inc.h>
 
 NAMESPACE_TARO_WS_BEGIN
@@ -134,7 +135,41 @@ PRIVATE: // 私有函数
             handler_ = it->second;
             return true;
         }
-        return false;
+
+        std::list<std::string> shooted;
+        for( auto const& one : impl_->wildcard_routine_ )
+        {
+            if( wildcard_match( one.first, header_->url() ) )
+            {
+                shooted.push_back( one.first );
+            }
+        }
+
+        if( shooted.empty() )
+        {
+            return false;
+        }
+
+        shooted.sort( []( std::string const& a, std::string const& b )
+        {
+            if( a.length() > b.length() ) // choose longger string
+            {
+                return true;
+            }
+
+            if( a.length() == b.length() )
+            {
+                auto pos = a.find( "?" ); // "?" priority higher than "*"
+                if( pos != std::string::npos )
+                {
+                    return true;
+                }
+            }
+            return false;
+        } );
+
+        handler_ = impl_->wildcard_routine_[shooted.front()];
+        return true;
     }
 
     void notfound_repsonse()
@@ -248,17 +283,27 @@ int32_t WebServer::set_routine( const char* url, HttpRoutineHandler const& handl
         return TARO_ERR_INVALID_ARG;
     }
 
+    if( is_wildcard( url ) )
+    {
+        impl_->wildcard_routine_[url] = handler;
+        return TARO_OK;
+    }
+
     impl_->matched_routine_[url] = handler;
     return TARO_OK;
 }
 
 int32_t WebServer::set_path( const char* dir )
 {
-    return TARO_OK;
-}
+    if ( !STRING_CHECK( dir ) || FileSystem::check_dir( dir ) != TARO_OK )
+    {
+        WS_ERROR << "parameter invalid";
+        return TARO_ERR_INVALID_ARG;
+    }
 
-int32_t WebServer::set_redirect( const char* redirect )
-{
+    impl_->file_reader_.reset( new FileReader( dir ) );
+    impl_->wildcard_routine_["/*"] =
+        std::bind( &FileReader::on_message, impl_->file_reader_.get(), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3 );
     return TARO_OK;
 }
 

@@ -21,12 +21,16 @@ void response(HttpClientSPtr const& conn)
 void web_svr_test()
 {
     WebServer svr;
+
+    // 静态文件路径
+    svr.set_path( "web" ); 
+
+    // 动态命令处理
     svr.set_routine( "/hello", []( HttpClientSPtr client, HttpRequestSPtr const& req, DynPacketSPtr const& )
     {
         WS_WARN << "hello request arrived";
         response( client );
-
-        return true;
+        return true; // true 保持连接  false 断开连接
     } );
 
     svr.start( 20002 );
