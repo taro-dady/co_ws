@@ -390,8 +390,20 @@ PRIVATE: // function
         }
 
         uint32_t value_len = len_end - len_begin;
+        if( 0 == value_len )
+        {
+            WS_ERROR << "value len is zero";
+            return false;
+        }
+
         std::string value( value_len, 0 );
-        pktlist_.try_read( ( uint8_t* )value.c_str(), value_len, len_begin );
+        auto readbytes = pktlist_.try_read( ( uint8_t* )value.c_str(), value_len, len_begin );
+        if( readbytes != ( int32_t )value_len )
+        {
+            WS_DEBUG << "read nothing";
+            return false;
+        }
+
         if ( consume )
         {
             pktlist_.consume( value_len + HTTP_SEP_LEN );

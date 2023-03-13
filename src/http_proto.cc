@@ -74,6 +74,11 @@ void HttpRequest::set_close()
     set_str( "Connection", "Close" );
 }
 
+void HttpRequest::set_boundary( const char* boundary )
+{
+    set_str( "Content-Type", ( std::string( "multipart/form-data; boundary=" ) + boundary ).c_str() );
+}
+
 bool HttpRequest::contains( const char* key )
 {
     if ( !STRING_CHECK( key ) )
@@ -174,6 +179,11 @@ const char* HttpResponse::status() const
 int32_t HttpResponse::code() const
 {
     return impl_->code_;
+}
+
+void HttpResponse::set_boundary( const char* boundary )
+{
+    set_str( "Content-Type", ( std::string( "multipart/form-data; boundary=" ) + boundary ).c_str() );
 }
 
 void HttpResponse::set_time()

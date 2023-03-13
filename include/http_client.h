@@ -80,12 +80,13 @@ PUBLIC: // 公共函数
     int32_t send_boundary_body( DynPacketSPtr const& body = nullptr, const char* boundary = nullptr );
 
     /**
-     * @brief 接收http回复
+     * @brief 发送请求并等待恢复
      * 
-     * @param[in] ms 超时时间 0 表示一直阻塞
+     * @param[in] request http请求
+     * @param[in] ms      超时时间 0 表示一直阻塞
      * @return 回复信息
     */
-    HttpRespRet recv_resp( uint32_t ms = 0 );
+    HttpRespRet request( HttpRequest const& request, uint32_t ms = 0 );
 
 PRIVATE: // 私有类型
     

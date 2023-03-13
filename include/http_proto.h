@@ -78,6 +78,11 @@ PUBLIC: // 公共函数
     void set_close();
 
     /**
+     * @brief 设置boundary标识
+    */
+    void set_boundary( const char* boundary );
+
+    /**
      * @brief 设置body值
      * 
      * @param[in] key 关键字
@@ -223,6 +228,11 @@ PUBLIC: // 公共函数
      * @brief 设置关闭
     */
     void set_close();
+
+    /**
+     * @brief 设置boundary标识
+    */
+    void set_boundary( const char* boundary );
 
     /**
      * @brief 设置body值

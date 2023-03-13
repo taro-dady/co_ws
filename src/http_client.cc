@@ -170,7 +170,7 @@ int32_t HttpClient::send_boundary_body( DynPacketSPtr const& body, const char* b
     return TARO_OK;
 }
 
-HttpRespRet HttpClient::recv_resp( uint32_t ms )
+HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
 {
     HttpRespRet result;
     if ( !impl_->active_ )
@@ -180,18 +180,36 @@ HttpRespRet HttpClient::recv_resp( uint32_t ms )
         return result;
     }
 
+    auto ret = send_req( request );
+    if ( ret <= 0 )
+    {
+        WS_ERROR << "send request failed";
+        result.ret = ret;
+        return result;
+    }
+
     constexpr uint32_t default_pack_size = 1024;
     auto recv_func = [&]()
     {
         auto packet = create_default_packet( default_pack_size );
         TARO_ASSERT( impl_->client_, "connection is nullptr" );
-        auto ret = impl_->client_->recv( ( char* )packet->buffer(), packet->capcity() );
-        if ( ret < 0 )
+
+        while( 1 )
         {
-            set_errno( ret );
-            return false;
+            auto ret = impl_->client_->recv( ( char* )packet->buffer(), packet->capcity(), ms );
+            if( ret < 0 )
+            {
+                if( ret == TARO_ERR_CONTINUE )
+                {
+                    continue;
+                }
+                set_errno( ret );
+                return false;
+            }
+            packet->resize( ret );
+            impl_->parser_.push( packet );
+            break;
         }
-        impl_->parser_.push( packet );
         return true;
     };
 
@@ -233,6 +251,7 @@ HttpRespRet HttpClient::recv_resp( uint32_t ms )
             result.body = body;
             result.resp = resp;
             result.ret  = TARO_OK;
+            impl_->parser_.reset();
             impl_->resp_.reset();
             return result;
         }
@@ -263,8 +282,11 @@ HttpRespRet HttpClient::recv_resp( uint32_t ms )
             result.body = body;
             result.resp = impl_->resp_;
             result.ret  = TARO_OK;
-            if ( body == nullptr )
+            if( body == nullptr )
+            {
+                impl_->parser_.reset();
                 impl_->resp_.reset();
+            }
             return result;
         }
 
@@ -283,8 +305,11 @@ HttpRespRet HttpClient::recv_resp( uint32_t ms )
             result.body = body;
             result.resp = impl_->resp_;
             result.ret  = TARO_OK;
-            if ( body == nullptr )
+            if( body == nullptr )
+            {
+                impl_->parser_.reset();
                 impl_->resp_.reset();
+            }
         }
         return result;
     }

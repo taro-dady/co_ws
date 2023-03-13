@@ -71,41 +71,11 @@ PUBLIC: // 公共函数
         }
         else if( HttpProtoPaser::TYPE_CHUNK == type )
         {
-            DynPacketSPtr content;
-            auto ret = parser_.get_chunk( content );
-            if ( ret == TARO_ERR_INVALID_ARG )
-            {
-                WS_ERROR << "get chunk size failed, format error";
-                return false;
-            }
-
-            if ( ret == TARO_OK )
-            {
-                if( !handler_( HttpClientImpl::create( client_ ), header_, content ) )
-                    return false;
-
-                if( content == nullptr ) 
-                    clear();
-            }
+            return on_chunk_msg();
         }
         else if( HttpProtoPaser::TYPE_BOUNDARY == type )
         {
-            DynPacketSPtr content;
-            auto ret = parser_.get_boundary( content );
-            if ( ret == TARO_ERR_INVALID_ARG )
-            {
-                WS_ERROR << "get boundary failed, format error";
-                return false;
-            }
-
-            if ( ret == TARO_OK )
-            {
-                if( !handler_( HttpClientImpl::create( client_ ), header_, content ) )
-                    return false;
-
-                if( content == nullptr )
-                    clear();
-            }
+            return on_boundary_msg();
         }
         else if( HttpProtoPaser::TYPE_WEBSOCKET == type )
         {
@@ -184,6 +154,68 @@ PRIVATE: // 私有函数
         auto str = HttpResponseImpl::serialize( resp );
         client_->send( ( char* )str.c_str(), str.length() );
         client_->send( ( char* )not_found, strlen( not_found ) );
+    }
+
+    bool on_chunk_msg()
+    {
+        while( 1 )
+        {
+            DynPacketSPtr content;
+            auto ret = parser_.get_chunk( content );
+            if( ret == TARO_ERR_INVALID_ARG )
+            {
+                WS_ERROR << "get chunk size failed, format error";
+                return false;
+            }
+
+            if( ret == TARO_OK )
+            {
+                if( !handler_( HttpClientImpl::create( client_ ), header_, content ) )
+                    return false;
+
+                if( content == nullptr )
+                {
+                    clear();
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        return true;
+    }
+
+    bool on_boundary_msg()
+    {
+        while( 1 )
+        {
+            DynPacketSPtr content;
+            auto ret = parser_.get_boundary( content );
+            if( ret == TARO_ERR_INVALID_ARG )
+            {
+                WS_ERROR << "get boundary failed, format error";
+                return false;
+            }
+
+            if( ret == TARO_OK )
+            {
+                if( !handler_( HttpClientImpl::create( client_ ), header_, content ) )
+                    return false;
+
+                if( content == nullptr )
+                {
+                    clear();
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        return true;
     }
 
 PRIVATE: // 私有变量
