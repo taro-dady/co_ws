@@ -82,6 +82,14 @@ PUBLIC: // 公共函数
     /**
      * @brief 发送请求并等待恢复
      * 
+     * @param[in] ms      超时时间 0 表示一直阻塞
+     * @return 回复信息
+    */
+    HttpRespRet recv_resp( uint32_t ms = 0 );
+
+    /**
+     * @brief 发送请求并等待恢复
+     * 
      * @param[in] request http请求
      * @param[in] ms      超时时间 0 表示一直阻塞
      * @return 回复信息

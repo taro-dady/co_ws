@@ -115,7 +115,7 @@ struct HttpRequestImpl
         auto splited = split_string( line );
         if ( splited.size() != 3 )
         {
-            WS_ERROR << "parse request line failed.";
+            WS_ERROR << "parse request line failed. header:" << line;
             return false;
         }
         req.impl_->method_  = string_trim( splited[0] );
@@ -204,6 +204,7 @@ PUBLIC:  // function
 
     HttpProtoPaser()
         : type_( TYPE_INVALID )
+        , chunk_bytes_( -1 )
     {
 
     }
@@ -251,7 +252,7 @@ PUBLIC:  // function
         else if ( pktlist_.search( HTTP_CONTENT_BOUNDARY, 0, len_begin, str_cmp ) )
         {
             std::string tmp;
-            if ( !read_value( len_begin + ( uint32_t )strlen( HTTP_CONTENT_BOUNDARY ), tmp ) )
+            if ( read_value( len_begin + ( uint32_t )strlen( HTTP_CONTENT_BOUNDARY ), tmp ) != TARO_OK )
             {
                 WS_ERROR << "boundary not found.";
                 pktlist_.consume( total_len ); // drop the packet
@@ -263,7 +264,7 @@ PUBLIC:  // function
         else if ( pktlist_.search( HTTP_CONTENT_LEN, 0, len_begin, str_cmp ) )
         {
             int32_t tmp = -1;
-            if ( !read_value( len_begin + ( uint32_t )strlen( HTTP_CONTENT_LEN ), tmp ) || tmp < 0 )
+            if ( ( read_value( len_begin + ( uint32_t )strlen( HTTP_CONTENT_LEN ), tmp ) != TARO_OK ) || tmp < 0 )
             {
                 WS_ERROR << "content length not found.";
                 pktlist_.consume( total_len ); // drop the packet
@@ -312,30 +313,41 @@ PUBLIC:  // function
         TARO_ASSERT( type_ == TYPE_CHUNK );
         
         // chunk format: [chunk size][\r\n][chunk data][\r\n][chunk size][\r\n][chunk data][\r\n][chunk size = 0][\r\n][\r\n]
-        int32_t chunk_bytes = -1;
-        if ( !read_value( 0, chunk_bytes, true, true ) )
+        if ( chunk_bytes_ < 0 )
         {
-            return TARO_ERR_CONTINUE;
+            auto ret = read_value( 0, chunk_bytes_, true, true );
+            if ( ret == TARO_ERR_FORMAT )
+            {
+                WS_ERROR << "read chunk size failed";
+                return TARO_ERR_INVALID_ARG;
+            }
+
+            if ( ret == TARO_ERR_CONTINUE )
+            {
+                return TARO_ERR_CONTINUE;
+            }
+
+            if ( chunk_bytes_ < 0 )
+            {
+                WS_ERROR << "chunk value invalid.";
+                return TARO_ERR_INVALID_ARG;
+            }
         }
 
-        if ( chunk_bytes < 0 )
-        {
-            WS_ERROR << "chunk value invalid.";
-            return TARO_ERR_INVALID_ARG;
-        }
-
-        if ( 0 == chunk_bytes )
+        if ( 0 == chunk_bytes_ )
         {
             pktlist_.consume( HTTP_SEP_LEN );
+            chunk_bytes_ = -1;
             return TARO_OK;
         }
 
-        if ( chunk_bytes + HTTP_SEP_LEN > pktlist_.size() )
+        if ( chunk_bytes_ + HTTP_SEP_LEN > pktlist_.size() )
         {
             return TARO_ERR_CONTINUE;
         }
-        packet = pktlist_.read( chunk_bytes );
+        packet = pktlist_.read( chunk_bytes_ );
         pktlist_.consume( HTTP_SEP_LEN );
+        chunk_bytes_ = -1;
         return TARO_OK;
     }
 
@@ -380,41 +392,40 @@ PUBLIC:  // function
 PRIVATE: // function
 
     template<typename T>
-    bool read_value( uint32_t len_begin, T& v, bool consume = false, bool hex = false )
+    int32_t read_value( uint32_t len_begin, T& v, bool consume = false, bool hex = false )
     {
         uint32_t len_end = 0;
         if ( !pktlist_.search( HTTP_SEP, len_begin, len_end ) )
         {
-            WS_DEBUG << "finish flag not found";
-            return false;
+            WS_DEBUG << "finish flag not found size:" << pktlist_.size();
+            return TARO_ERR_CONTINUE;
         }
 
         uint32_t value_len = len_end - len_begin;
         if( 0 == value_len )
         {
             WS_ERROR << "value len is zero";
-            return false;
+            return TARO_ERR_FORMAT;
         }
 
         std::string value( value_len, 0 );
         auto readbytes = pktlist_.try_read( ( uint8_t* )value.c_str(), value_len, len_begin );
-        if( readbytes != ( int32_t )value_len )
+        if( readbytes < ( int32_t )value_len )
         {
-            WS_DEBUG << "read nothing";
-            return false;
+            WS_ERROR << "read length error";
+            return TARO_ERR_CONTINUE;
         }
 
         if ( consume )
         {
             pktlist_.consume( value_len + HTTP_SEP_LEN );
         }
-
         std::stringstream ss;
         if ( hex )
             ss << std::hex;
         ss << value;
         ss >> v;
-        return true;
+        return TARO_OK;
     }
 
 PRIVATE: // variable
@@ -424,6 +435,7 @@ PRIVATE: // variable
     int32_t       body_bytes_;
     std::string   boundary_;
     PacketList    pktlist_;
+    int32_t       chunk_bytes_;
 };
 
 NAMESPACE_TARO_WS_END

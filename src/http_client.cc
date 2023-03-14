@@ -170,24 +170,8 @@ int32_t HttpClient::send_boundary_body( DynPacketSPtr const& body, const char* b
     return TARO_OK;
 }
 
-HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
+HttpRespRet HttpClient::recv_resp( uint32_t ms )
 {
-    HttpRespRet result;
-    if ( !impl_->active_ )
-    {
-        WS_ERROR << "server connect not support receive response";
-        result.ret = TARO_ERR_NOT_SUPPORT;
-        return result;
-    }
-
-    auto ret = send_req( request );
-    if ( ret <= 0 )
-    {
-        WS_ERROR << "send request failed";
-        result.ret = ret;
-        return result;
-    }
-
     constexpr uint32_t default_pack_size = 1024;
     auto recv_func = [&]()
     {
@@ -213,6 +197,7 @@ HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
         return true;
     };
 
+    HttpRespRet result;
     result.ret = TARO_ERR_FAILED;
     while( 1 )
     {
@@ -270,7 +255,8 @@ HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
         if ( HttpProtoPaser::TYPE_CHUNK == type )
         {
             DynPacketSPtr body;
-            if ( TARO_ERR_CONTINUE == impl_->parser_.get_chunk( body ) )
+            auto ret = impl_->parser_.get_chunk( body );
+            if ( TARO_ERR_CONTINUE == ret )
             {
                 if ( !recv_func() )
                 {
@@ -279,6 +265,12 @@ HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
                 }
                 continue;
             }
+            else if( ret != TARO_OK )
+            {
+                WS_ERROR << "get chunk failed";
+                return result;
+            }
+
             result.body = body;
             result.resp = impl_->resp_;
             result.ret  = TARO_OK;
@@ -314,6 +306,19 @@ HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
         return result;
     }
     return HttpRespRet();
+}
+
+HttpRespRet HttpClient::request( HttpRequest const& request, uint32_t ms )
+{
+    auto ret = send_req( request );
+    if ( ret <= 0 )
+    {
+        WS_ERROR << "send request failed";
+        HttpRespRet result;
+        result.ret = ret;
+        return result;
+    }
+    return recv_resp( ms );
 }
 
 NAMESPACE_TARO_WS_END
