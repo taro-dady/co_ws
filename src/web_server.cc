@@ -1,9 +1,11 @@
 ﻿
+#include "impl/ws_proto.h"
+#include "impl/ws_client_impl.h"
 #include "impl/web_server_impl.h"
 #include "impl/http_proto_impl.h"
 #include "impl/http_client_impl.h"
-#include <base/utils/string_tool.h>
 #include <co_routine/inc.h>
+#include <base/utils/string_tool.h>
 
 NAMESPACE_TARO_WS_BEGIN
 
@@ -18,6 +20,7 @@ PUBLIC: // 公共函数
     MsgHandler( net::TcpClientSPtr const& client, WebServerImpl* impl )
         : impl_( impl )
         , client_( client )
+        , msg_handler_( std::bind( &MsgHandler::on_http_recv, this ) )
     {
 
     }
@@ -25,7 +28,44 @@ PUBLIC: // 公共函数
     /**
      * @brief 消息处理函数
     */
-    bool on_msg_arrived( DynPacketSPtr const& packet )
+    bool recv_msg()
+    {
+        return msg_handler_();
+    }
+
+PRIVATE: // 私有函数
+
+    /**
+     * @brief http消息接收并处理
+    */
+    bool on_http_recv()
+    {
+        auto packet = create_default_packet( 1024 );
+        auto ret = client_->recv( ( char* )packet->buffer(), packet->capcity() );
+        if( ret > 0 )
+        {
+            packet->resize( ret );
+            if( !on_http_arrived( packet ) )
+            {
+                return false;
+            }
+        }
+        else if( ret == TARO_ERR_CONTINUE )
+        {
+            return true;
+        }
+        else
+        {
+            WS_ERROR << "client disconnect";
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * @brief http消息处理函数
+    */
+    bool on_http_arrived( DynPacketSPtr const& packet )
     {
         parser_.push( packet );
         if ( HttpProtoPaser::TYPE_INVALID == parser_.type() )
@@ -79,7 +119,7 @@ PUBLIC: // 公共函数
         }
         else if( HttpProtoPaser::TYPE_WEBSOCKET == type )
         {
-
+            return on_web_socket();
         }
         else
         {
@@ -88,8 +128,30 @@ PUBLIC: // 公共函数
         return true;
     }
 
-PRIVATE: // 私有函数
+    /**
+     * @brief ws消息处理函数
+    */
+    bool on_ws_recv()
+    {
+        WsRecvData result;
+        auto ret = WsClientImpl::recv_ws( client_, result.body, result.last_pack, result.kind, result.evt );
+        if ( ret < 0 )
+        {
+            WS_ERROR << "receive websocket failed";
+            return false;
+        }
 
+        if ( impl_->ws_handler_ )
+        {
+            result.ret = TARO_OK;
+            impl_->ws_handler_( WsClientImpl::create( client_ ), result );
+        }
+        return true;
+    }
+
+    /**
+     * @brief 清除状态
+    */
     void clear()
     {
         header_.reset();
@@ -97,6 +159,9 @@ PRIVATE: // 私有函数
         parser_.reset();
     }
 
+    /**
+     * @brief 查询处理函数
+    */
     bool find_handler()
     {
         auto it = impl_->matched_routine_.find( header_->url() );
@@ -218,12 +283,40 @@ PRIVATE: // 私有函数
         return true;
     }
 
+    bool on_web_socket()
+    {
+        auto key = header_->get<std::string>( "sec-websocket-key" );
+        if ( !key.valid() )
+        {
+            WS_ERROR <<  "websocket key not found.";
+            return false;
+        }
+
+        if ( impl_->ws_handler_ )
+        {
+            WsRecvData result;
+            result.evt = eWsEventOpen;
+            impl_->ws_handler_( WsClientImpl::create( client_ ), result );
+            msg_handler_ = std::bind( &MsgHandler::on_ws_recv, this );
+        }
+        
+        HttpResponse resp( 101, "Switching protocols" );
+        resp.set( "Server",               "taro/1.1" );
+        resp.set( "Upgrade",              "websocket" );
+        resp.set( "Connection",           "upgrade" );
+        resp.set( "Sec-WebSocket-Accept", WsProto::create_key( key ) );
+        auto str = HttpResponseImpl::serialize( resp );
+        client_->send( ( char* )str.c_str(), str.length() );
+        return true;
+    }
+
 PRIVATE: // 私有变量
 
     HttpProtoPaser parser_;
     WebServerImpl* impl_;
     HttpRequestSPtr header_;
     net::TcpClientSPtr client_;
+    std::function<bool()> msg_handler_;
     WebServer::HttpRoutineHandler handler_;
 };
 
@@ -235,23 +328,8 @@ void client_handle( net::TcpClientSPtr const& client, WebServerImpl* impl )
     MsgHandler handler( client, impl );
     while( 1 )
     {
-        auto packet = create_default_packet( 1024 );
-        auto ret = client->recv( ( char* )packet->buffer(), packet->capcity() );
-        if( ret > 0 )
+        if ( !handler.recv_msg() )
         {
-            packet->resize( ret );
-            if( !handler.on_msg_arrived( packet ) )
-            {
-                break;
-            }
-        }
-        else if( ret == TARO_ERR_CONTINUE )
-        {
-            continue;
-        }
-        else
-        {
-            WS_ERROR << "client disconnect";
             break;
         }
     }
@@ -336,6 +414,17 @@ int32_t WebServer::set_path( const char* dir )
     impl_->file_reader_.reset( new FileReader( dir ) );
     impl_->wildcard_routine_["/*"] =
         std::bind( &FileReader::on_message, impl_->file_reader_.get(), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3 );
+    return TARO_OK;
+}
+
+int32_t WebServer::set_ws_handler( WebsocketHandler const& handler )
+{
+    if ( !handler )
+    {
+        WS_ERROR << "parameter invalid";
+        return TARO_ERR_INVALID_ARG;
+    }
+    impl_->ws_handler_ = handler;
     return TARO_OK;
 }
 

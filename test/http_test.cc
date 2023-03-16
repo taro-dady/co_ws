@@ -143,6 +143,39 @@ void web_svr_test()
         return true;
     } );
 
+    // websocket测试
+    svr.set_ws_handler( []( WsClientSPtr client, WsRecvData const& data )
+    {
+        if( data.evt == eWsEventOpen )
+        {
+            std::cout << "websocket open" << std::endl;
+        }
+        else if( data.evt == eWsEventMsg )
+        {
+            std::cout << "receive data:" << std::string( ( char* )data.body->buffer(), data.body->size() )
+                      << " is last packet " << ( data.last_pack ? "true" : "false" ) << std::endl;
+
+            // do something ......
+            
+            std::stringstream resp;
+            for( int i = 0; i < 1; ++i )
+            {
+                resp << "hello explore client " << i << " ";
+            }
+            printf( "send length is:%d\n", ( int )resp.str().length() );
+            if( !client->send( ( char* )resp.str().c_str(), ( int )resp.str().length() ) )
+            {
+                // 发送数据失败，网络有问题退出
+                return false;
+            }
+        }
+        else if( data.evt == eWsEventClose )
+        {
+            std::cout << "websocket closed" << std::endl;
+        }
+        return true;
+    } );
+
     svr.start( 20002 );
     rt::co_loop();
 }
@@ -395,6 +428,47 @@ void http_client_get_boundary()
     rt::co_loop();
 }
 
+void ws_client_test()
+{
+    co_run[]()
+    {
+        auto client = std::make_shared<WsClient>();
+        while( client->open( "127.0.0.1", 20002 ) != TARO_OK )
+        {
+            rt::co_wait( 1000 );
+        }
+        printf( "connect web server ok\n" );
+
+        while( 1 )
+        {
+            std::stringstream resp;
+            for( int i = 0; i < 1; ++i )
+            {
+                resp << "hello explore client " << i << " ";
+            }
+
+            printf( "send length is:%d\n", ( int )resp.str().length() );
+            if( !client->send( ( char* )resp.str().c_str(), ( int )resp.str().length(), eWsDataKindText, true ) )
+            {
+                // 发送数据失败，网络有问题退出
+                std::cout << "send data failed. exit" << std::endl;
+                break;
+            }
+
+            auto result = client->recv();
+            if( result.ret != TARO_OK || result.evt != eWsEventMsg )
+            {
+                std::cout << "disconnected" << std::endl;
+                break;
+            }
+
+            std::cout << "ws client receive:" << std::string( ( char* )result.body->buffer(), result.body->size() ) << std::endl;
+            rt::co_wait( 1000 );
+        }
+    };
+    rt::co_loop();
+}
+
 int main( int argc, char** argv )
 {
     if ( argc < 2 )
@@ -428,6 +502,9 @@ int main( int argc, char** argv )
         break;
     case 6:
         http_client_post_test();
+        break;
+    case 7:
+        ws_client_test();
         break;
     }
     net::stop_network();

@@ -166,7 +166,7 @@ struct HttpResponseImpl
         for ( size_t i = 2; i < splited.size(); ++i )
         {
             resp.impl_->state_ += string_trim( splited[i] );
-            if ( i + 1 == splited.size() )
+            if ( i + 1 < splited.size() )
             {
                 resp.impl_->state_ += " ";
             }

@@ -109,7 +109,7 @@ PUBLIC: // 公共函数
      * @return 关键字对应的值
     */
     template<typename T>
-    Optional<T>& get( const char* key )
+    Optional<T> get( const char* key ) const
     {
         std::string str_val;
         if ( !get_str( key, str_val ) )
@@ -123,6 +123,14 @@ PUBLIC: // 公共函数
         ss >> val;
         return Optional<T>( val );
     }
+
+    /**
+     * @brief 进行值比较
+     * 
+     * @param[in] key   关键字
+     * @param[in] value 被比较的值
+    */
+    bool equal( const char* key, const char* value ) const;
 
 PRIVATE: // 私有类型 
 
@@ -147,7 +155,7 @@ PRIVATE: // 私有函数
      * @param[out] val 值
      * @return true 成功  false 失败 
     */
-    bool get_str( const char* key, std::string& value );
+    bool get_str( const char* key, std::string& value ) const;
 
 PRIVATE: // 私有变量
 
@@ -163,9 +171,8 @@ PUBLIC: // 公共函数
      * @brief 构造函数
      * 
      * @param[in] code    状态码
-     * @param[in] version 协议版本
     */
-    HttpResponse( int32_t code = eHttpRespCodeOK, const char* version = HTTP_VERSION );
+    HttpResponse( int32_t code = eHttpRespCodeOK );
 
     /**
      * @brief 构造函数
@@ -173,7 +180,7 @@ PUBLIC: // 公共函数
      * @param[in] code   返回值
      * @param[in] status 状态信息
     */
-    HttpResponse( int32_t code, const char* status, const char* version = HTTP_VERSION );
+    HttpResponse( int32_t code, const char* status );
 
     /**
      * @brief 移动构造函数
@@ -261,7 +268,7 @@ PUBLIC: // 公共函数
      * @return 关键字对应的值
     */
     template<typename T>
-    Optional<T>& get( const char* key )
+    Optional<T> get( const char* key ) const
     {
         std::string str_val;
         if ( !get_str( key, str_val ) )
@@ -275,6 +282,14 @@ PUBLIC: // 公共函数
         ss >> val;
         return Optional<T>( val );
     }
+
+    /**
+     * @brief 进行值比较
+     * 
+     * @param[in] key   关键字
+     * @param[in] value 被比较的值
+    */
+    bool equal( const char* key, const char* value ) const;
 
 PRIVATE: // 私有类型 
 
@@ -299,7 +314,7 @@ PRIVATE: // 私有函数
      * @param[out] val 值
      * @return true 成功  false 失败 
     */
-    bool get_str( const char* key, std::string& value );
+    bool get_str( const char* key, std::string& value ) const;
 
 PRIVATE: // 私有变量
 

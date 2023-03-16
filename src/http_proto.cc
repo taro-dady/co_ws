@@ -79,6 +79,21 @@ void HttpRequest::set_boundary( const char* boundary )
     set_str( "Content-Type", ( std::string( "multipart/form-data; boundary=" ) + boundary ).c_str() );
 }
 
+bool HttpRequest::equal( const char* key, const char* value ) const
+{
+    if( !STRING_CHECK( key, value ) )
+    {
+        return false;
+    }
+
+    std::string v;
+    if ( !get_str( key, v ) )
+    {
+        return false;
+    }
+    return string_compare( v, value );
+}
+
 bool HttpRequest::contains( const char* key )
 {
     if ( !STRING_CHECK( key ) )
@@ -112,7 +127,7 @@ void HttpRequest::set_str( const char* key, const char* value )
     }
 }
 
-bool HttpRequest::get_str( const char* key, std::string& value )
+bool HttpRequest::get_str( const char* key, std::string& value ) const
 {
     if ( !STRING_CHECK( key ) )
     {
@@ -132,20 +147,20 @@ bool HttpRequest::get_str( const char* key, std::string& value )
     return true;
 }
 
-HttpResponse::HttpResponse( int32_t code, const char* version )
+HttpResponse::HttpResponse( int32_t code )
     : impl_( new HttpResponseImpl )
 {
     impl_->code_    = code;
     impl_->state_   = HttpRespState::message( code );
-    impl_->version_ = version;
+    impl_->version_ = HTTP_VERSION;
 }
 
-HttpResponse::HttpResponse( int32_t code, const char* status, const char* version )
+HttpResponse::HttpResponse( int32_t code, const char* status )
     : impl_( new HttpResponseImpl )
 {
     impl_->code_    = code;
     impl_->state_   = status;
-    impl_->version_ = version;
+    impl_->version_ = HTTP_VERSION;
 }
 
 HttpResponse::HttpResponse( HttpResponse&& other )
@@ -196,6 +211,21 @@ void HttpResponse::set_close()
     set_str( "Connection", "Close" );
 }
 
+bool HttpResponse::equal( const char* key, const char* value ) const
+{
+    if( !STRING_CHECK( key, value ) )
+    {
+        return false;
+    }
+    
+    std::string v;
+    if ( !get_str( key, v ) )
+    {
+        return false;
+    }
+    return string_compare( v, value );
+}
+
 bool HttpResponse::contains( const char* key )
 {
     if ( !STRING_CHECK( key ) )
@@ -229,7 +259,7 @@ void HttpResponse::set_str( const char* key, const char* value )
     }
 }
 
-bool HttpResponse::get_str( const char* key, std::string& value )
+bool HttpResponse::get_str( const char* key, std::string& value ) const
 {
     if ( !STRING_CHECK( key ) )
     {

@@ -252,6 +252,15 @@ HttpRespRet HttpClient::recv_resp( uint32_t ms )
             impl_->resp_ = resp;
         }
 
+        if( HttpProtoPaser::TYPE_WEBSOCKET == type )
+        {
+            result.resp = impl_->resp_;
+            result.ret  = TARO_OK;
+            impl_->parser_.reset();
+            impl_->resp_.reset();
+            return result;
+        }
+
         if ( HttpProtoPaser::TYPE_CHUNK == type )
         {
             DynPacketSPtr body;

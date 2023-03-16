@@ -15,6 +15,7 @@ struct WebServerImpl
     RoutineMap matched_routine_;
     RoutineMap wildcard_routine_;
     net::TcpServerSPtr svr_;
+    WebServer::WebsocketHandler ws_handler_;
     std::unique_ptr<FileReader> file_reader_;
 };
 

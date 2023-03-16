@@ -1,9 +1,10 @@
 ﻿
 #pragma once
 
+#include "ws_client.h"
+#include "http_client.h"
 #include <net/defs.h>
 #include <base/memory/dyn_packet.h>
-#include "http_client.h"
 
 NAMESPACE_TARO_WS_BEGIN
 
@@ -23,6 +24,15 @@ PUBLIC: // 公共类型
      * @return true 保持连接  false 断开连接 
     */
     using HttpRoutineHandler = std::function< bool( HttpClientSPtr, HttpRequestSPtr const&, DynPacketSPtr const& ) >;
+
+    /**
+     * @brief websocket处理函数
+     * 
+     * @param[in] 客户端
+     * @param[in] 接收到数据信息
+     * @return true 保持连接  false 断开连接 
+    */
+    using WebsocketHandler = std::function< bool( WsClientSPtr, WsRecvData const& ) >;
 
 PUBLIC: // 公共函数
 
@@ -60,9 +70,12 @@ PUBLIC: // 公共函数
     */
     int32_t set_path( const char* dir );
 
-PRIVATE: // 私有类型 
-
-    friend struct WebServerImpl;
+    /**
+     * @brief 设置websocket处理函数
+     * 
+     * @param[in] handler 处理函数
+    */
+    int32_t set_ws_handler( WebsocketHandler const& handler );
 
 PRIVATE: // 私有函数
 

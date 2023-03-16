@@ -1,0 +1,53 @@
+<!DOCTYPE HTML>
+<html>
+   <head>
+   <meta charset="utf-8">
+   <title>Taro Test</title>
+    
+      <script type="text/javascript">
+         function WebSocketTest()
+         {
+            if ("WebSocket" in window)
+            {
+               // 打开一个 web socket
+               var ws = new WebSocket("ws://127.0.0.1:20002");
+               ws.onopen = function()
+               {
+                  // Web Socket 已连接上，使用 send() 方法发送数据
+                  var test = '';
+                  for ( var i = 0; i < 1; i++ )
+                     test += "hello websocket server " + i;
+                        ws.send(test);
+                  console.log("send data");
+               };
+               
+               ws.onmessage = function (evt) 
+               { 
+                  var received_msg = evt.data;
+                  console.log("receive:" + received_msg);
+               };
+               
+               ws.onclose = function()
+               { 
+                  // 关闭 websocket
+                  alert("连接已关闭..."); 
+               };
+            }
+            
+            else
+            {
+               // 浏览器不支持 WebSocket
+               alert("您的浏览器不支持 WebSocket!");
+            }
+         }
+      </script>
+        
+   </head>
+   <body>
+   
+      <div id="sse">
+         <a href="javascript:WebSocketTest()">run test</a>
+      </div>
+      
+   </body>
+</html>
